@@ -5,7 +5,7 @@ import jax.numpy as jnp
 import numpy as np
 import optax
 
-from adaptive_pinns.dataloading import Trainloader, Validationloader
+from adaptive_pinns.dataloading import Trainloader, Validationloader, split_data
 from adaptive_pinns.models import MLP
 from adaptive_pinns.training import train
 
@@ -30,23 +30,11 @@ def main():
     y_data = jnp.sin(x_data[:, :output_size])
 
     key, subkey = jax.random.split(key)
-    indexes = jax.random.permutation(subkey, data_amount)
-
-    train_split = 80
-    train_amount = (data_amount * train_split) // 100
-
-    indexes_train = indexes[:train_amount]
-    x_train = x_data[indexes_train]
-    y_train = y_data[indexes_train]
-
-    indexes_val = indexes[train_amount:]
-    x_val = x_data[indexes_val]
-    y_val = y_data[indexes_val]
+    (x_train, y_train), (x_val, y_val) = split_data(x_data, y_data, subkey)
 
     batch_size = 32
     key, subkey = jax.random.split(key, 2)
     trainloader = Trainloader(x_train, y_train, batch_size, subkey)
-
     validationloader = Validationloader(x_val, y_val, batch_size)
 
     initial_learning_rate = 1e-4

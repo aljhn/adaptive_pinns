@@ -4,10 +4,11 @@ import equinox as eqx
 import jax
 import jax.numpy as jnp
 import optax
-from jaxtyping import Array, Float, PyTree
+from jaxtyping import Array, Float, PyTree, PRNGKeyArray
 
-from adaptive_pinns.dataloading import Trainloader, Validationloader
+from adaptive_pinns.dataloading import TrainLoader, ValidationLoader
 from adaptive_pinns.models import MLP
+from adaptive_pinns.collocation import CollocationSampler
 
 
 def loss_data(
@@ -43,12 +44,12 @@ def loss_pinn(
 
 def evaluate(
     model: MLP,
-    validationloader: Validationloader,
+    validationloader: ValidationLoader,
 ) -> Float[Array, ""]:
     loss_total = jnp.array(0.0)
     samples = 0
 
-    for x_batch, y_batch in validationloader:
+    for x_batch, y_batch in validationloader.iter():
         batch_loss = loss_data(model, x_batch, y_batch)
         batch_size = x_batch.shape[0]
 
@@ -63,8 +64,9 @@ def train(
     optimizer: optax.GradientTransformation,
     epochs: int,
     print_every: int,
-    trainloader: Trainloader,
-    validationloader: Validationloader,
+    trainloader: TrainLoader,
+    validationloader: ValidationLoader,
+    key: PRNGKeyArray
 ) -> MLP:
     opt_state = optimizer.init(eqx.filter(model, eqx.is_array))
 
@@ -84,7 +86,8 @@ def train(
         loss_train = jnp.array(0.0)
         samples_train = 0
 
-        for x_batch, y_batch in trainloader:
+        key, subkey = jax.random.split(key)
+        for x_batch, y_batch in trainloader.iter(subkey):
             model, opt_state, batch_loss = train_step(model, opt_state, x_batch, y_batch)
 
             batch_size = x_batch.shape[0]
@@ -105,9 +108,10 @@ def train_pinn(
     optimizer: optax.GradientTransformation,
     epochs: int,
     print_every: int,
-    trainloader: Trainloader,
-    validationloader: Validationloader,
-    collocation_sampler: Callable[[], Float[Array, "size dim"]],
+    trainloader: TrainLoader,
+    validationloader: ValidationLoader,
+    key: PRNGKeyArray,
+    collocation_sampler: CollocationSampler,
     physics_residual: Callable[[MLP, Float[Array, "size dim"]], Float[Array, " size"]],
     physics_weight: float,
 ) -> MLP:
@@ -132,8 +136,10 @@ def train_pinn(
         loss_train = jnp.array(0.0)
         samples_train = 0
 
-        for x_batch, y_batch in trainloader:
-            x_c = collocation_sampler()
+        key, subkey = jax.random.split(key)
+        for x_batch, y_batch in trainloader.iter(subkey):
+            key, subkey = jax.random.split(key)
+            x_c = collocation_sampler.sample(subkey)
 
             model, opt_state, batch_loss = train_step(model, opt_state, x_batch, y_batch, x_c)
 

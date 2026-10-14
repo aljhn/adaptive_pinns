@@ -2,25 +2,24 @@ import jax
 from jaxtyping import Array, Float, PRNGKeyArray
 
 
-class Trainloader:
+class TrainLoader:
+    x: Float[Array, "data_size input_size"]
+    y: Float[Array, "data_size output_size"]
+    batch_size: int
+
     def __init__(
         self,
         x: Float[Array, "data_size input_size"],
         y: Float[Array, "data_size output_size"],
         batch_size: int,
-        key: PRNGKeyArray,
     ):
         self.x = x
         self.y = y
         self.batch_size = batch_size
-        self.key = key
 
-    def __iter__(self):
+    def iter(self, key: PRNGKeyArray):
         data_size = self.x.shape[0]
-
-        key, subkey = jax.random.split(self.key)
-        self.key = key
-        indexes = jax.random.permutation(subkey, data_size)
+        indexes = jax.random.permutation(key, data_size)
 
         iterations = (data_size + self.batch_size - 1) // self.batch_size
         for i in range(iterations):
@@ -30,7 +29,11 @@ class Trainloader:
             yield self.x[batch_indexes], self.y[batch_indexes]
 
 
-class Validationloader:
+class ValidationLoader:
+    x: Float[Array, "data_size input_size"]
+    y: Float[Array, "data_size output_size"]
+    batch_size: int
+
     def __init__(
         self,
         x: Float[Array, "data_size input_size"],
@@ -41,7 +44,7 @@ class Validationloader:
         self.y = y
         self.batch_size = batch_size
 
-    def __iter__(self):
+    def iter(self):
         data_size = self.x.shape[0]
 
         iterations = (data_size + self.batch_size - 1) // self.batch_size

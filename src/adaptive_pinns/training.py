@@ -1,3 +1,5 @@
+from collections.abc import Callable
+
 import equinox as eqx
 import jax
 import jax.numpy as jnp
@@ -62,6 +64,67 @@ def train(
 
         for x_batch, y_batch in trainloader:
             model, opt_state, batch_loss = train_step(model, opt_state, x_batch, y_batch)
+
+            batch_size = x_batch.shape[0]
+            loss_train += batch_loss * batch_size
+            samples_train += batch_size
+
+        loss_train /= samples_train
+
+        if epoch % print_every == 0:
+            loss_validation = evaluate(model, validationloader)
+            print(f"epoch={epoch:4d}, loss_train={loss_train.item():.4f}, loss_validation={loss_validation.item():.4f}")
+
+    return model
+
+
+def train_pinn(
+    model: MLP,
+    optimizer: optax.GradientTransformation,
+    epochs: int,
+    print_every: int,
+    trainloader: Trainloader,
+    validationloader: Validationloader,
+    collocation_sampler: Callable[[], Float[Array, "size dim"]],
+    physics_residual: Callable[[MLP, Float[Array, "size dim"]], Float[Array, " size"]],
+    physics_weight: float,
+) -> MLP:
+    opt_state = optimizer.init(eqx.filter(model, eqx.is_array))
+
+    def loss_pinn(
+        model: MLP,
+        x: Float[Array, "batch input_size"],
+        y: Float[Array, "batch output_size"],
+        x_c: Float[Array, "size dim"],
+    ) -> Float[Array, ""]:
+        loss_data = loss(model, x, y)
+
+        residual = physics_residual(model, x_c)
+        loss_physics = jnp.mean(residual**2.0)
+
+        return loss_data + physics_weight * loss_physics
+
+    @eqx.filter_jit
+    def train_step(
+        model: MLP,
+        opt_state: PyTree,
+        x: Float[Array, "batch input_size"],
+        y: Float[Array, "batch output_size"],
+        x_collocation: Float[Array, "size dim"],
+    ):
+        loss_value, grads = eqx.filter_value_and_grad(loss_pinn)(model, x, y, x_collocation)
+        updates, opt_state = optimizer.update(grads, opt_state, eqx.filter(model, eqx.is_array))
+        model = eqx.apply_updates(model, updates)
+        return model, opt_state, loss_value
+
+    for epoch in range(1, epochs + 1):
+        loss_train = jnp.array(0.0)
+        samples_train = 0
+
+        for x_batch, y_batch in trainloader:
+            x_c = collocation_sampler()
+
+            model, opt_state, batch_loss = train_step(model, opt_state, x_batch, y_batch, x_c)
 
             batch_size = x_batch.shape[0]
             loss_train += batch_loss * batch_size

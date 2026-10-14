@@ -85,7 +85,7 @@ def main():
 
     input_size = 2
     output_size = 1
-    hidden_size = 100
+    hidden_size = 20
     num_hidden_layers = 5
 
     key, subkey = jax.random.split(key, 2)
@@ -123,12 +123,13 @@ def main():
     k = 1.0
     physics_residual = lambda model, states: jax.vmap(lambda state: heat_dynamics(model, state, k))(states)
 
-    initial_learning_rate = 1e-4
+    initial_learning_rate = 1e-3
     optimizer = optax.adamw(initial_learning_rate)
 
-    epochs = 100
+    epochs = 500
     print_every = 10
-    model = train_pinn(model, optimizer, epochs, print_every, trainloader, validationloader, collocation_sampler, physics_residual, 1e-1)
+    physics_weight = 1e-1
+    model = train_pinn(model, optimizer, epochs, print_every, trainloader, validationloader, collocation_sampler, physics_residual, physics_weight)
 
     n = 100
     t = jnp.linspace(T0, T1, n)

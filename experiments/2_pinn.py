@@ -4,12 +4,13 @@ import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import optax
+from jaxtyping import PRNGKeyArray
 
 from adaptive_pinns.collocation import UniformCollocationSampler
 from adaptive_pinns.dataloading import TrainLoader, ValidationLoader
 from adaptive_pinns.models import MLP
-from adaptive_pinns.problems import Heat1D
-from adaptive_pinns.training import train_pinn
+from adaptive_pinns.problems import Heat1D, InitialBoundaryValueProblem
+from adaptive_pinns.training import Model, train_pinn
 
 
 @dataclass
@@ -39,7 +40,7 @@ class Config:
     physics_weight: float = 1e-1
 
 
-def train_model(config, problem, key):
+def train_model(config: Config, problem: InitialBoundaryValueProblem, key: PRNGKeyArray) -> Model:
     key, subkey = jax.random.split(key, 2)
     model = MLP(config.input_size, config.output_size, config.hidden_size, config.num_hidden_layers, subkey)
 
@@ -75,7 +76,7 @@ def train_model(config, problem, key):
     return model
 
 
-def evaluate_model(model, problem):
+def evaluate_model(model: Model, problem: InitialBoundaryValueProblem) -> None:
     T0 = problem.domain_boundary[0, 0]
     T1 = problem.domain_boundary[0, 1]
     X0 = problem.domain_boundary[1, 0]

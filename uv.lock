@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.14'",
@@ -25,7 +25,6 @@ dependencies = [
     { name = "jax" },
     { name = "jaxtyping" },
     { name = "matplotlib" },
-    { name = "numpy" },
     { name = "optax" },
     { name = "tqdm" },
 ]
@@ -47,7 +46,6 @@ requires-dist = [
     { name = "jax", extras = ["cuda13"], marker = "extra == 'gpu'", specifier = ">=0.11.2" },
     { name = "jaxtyping", specifier = ">=0.3.11" },
     { name = "matplotlib", specifier = ">=3.11.2" },
-    { name = "numpy", specifier = ">=2.5.4" },
     { name = "optax", specifier = ">=0.2.8" },
     { name = "tqdm", specifier = ">=4.70.1" },
 ]

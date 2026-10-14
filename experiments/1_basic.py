@@ -1,8 +1,7 @@
-import random
+from dataclasses import dataclass
 
 import jax
 import jax.numpy as jnp
-import numpy as np
 import optax
 
 from adaptive_pinns.dataloading import TrainLoader, ValidationLoader, split_data
@@ -10,39 +9,45 @@ from adaptive_pinns.models import MLP
 from adaptive_pinns.training import train
 
 
-def main():
-    seed = 42069
-    random.seed(seed)
-    np.random.seed(seed)
-    key = jax.random.PRNGKey(seed)
+@dataclass
+class Config:
+    seed: int = 42069
 
-    input_size = 5
-    output_size = 3
-    hidden_size = 10
-    num_hidden_layers = 4
+    input_size: int = 5
+    output_size: int = 3
+    hidden_size: int = 10
+    num_hidden_layers: int = 4
+
+    n_data: int = 500
+    batch_size: int = 32
+
+    learning_rate: float = 1e-3
+    epochs: int = 100
+    print_every: int = 10
+
+
+def main():
+    config = Config()
+
+    key = jax.random.PRNGKey(config.seed)
 
     key, subkey = jax.random.split(key, 2)
-    model = MLP(input_size, output_size, hidden_size, num_hidden_layers, subkey)
+    model = MLP(config.input_size, config.output_size, config.hidden_size, config.num_hidden_layers, subkey)
 
     key, subkey1 = jax.random.split(key, 2)
-    data_amount = 500
-    x_data = jax.random.normal(subkey1, shape=(data_amount, input_size))
-    y_data = jnp.sin(x_data[:, :output_size])
+    x_data = jax.random.normal(subkey1, shape=(config.n_data, config.input_size))
+    y_data = jnp.sin(x_data[:, : config.output_size])
 
     key, subkey = jax.random.split(key)
     (x_train, y_train), (x_val, y_val) = split_data(x_data, y_data, subkey)
 
-    batch_size = 32
-    trainloader = TrainLoader(x_train, y_train, batch_size)
-    validationloader = ValidationLoader(x_val, y_val, batch_size)
+    trainloader = TrainLoader(x_train, y_train, config.batch_size)
+    validationloader = ValidationLoader(x_val, y_val, config.batch_size)
 
-    initial_learning_rate = 1e-4
-    optimizer = optax.adamw(initial_learning_rate)
+    optimizer = optax.adamw(config.learning_rate)
 
-    epochs = 100
-    print_every = 10
     key, subkey = jax.random.split(key, 2)
-    model = train(model, optimizer, epochs, print_every, trainloader, validationloader, subkey)
+    model = train(model, optimizer, config.epochs, config.print_every, trainloader, validationloader, subkey)
 
 
 if __name__ == "__main__":

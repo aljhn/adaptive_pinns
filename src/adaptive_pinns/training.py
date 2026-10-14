@@ -10,13 +10,35 @@ from adaptive_pinns.dataloading import Trainloader, Validationloader
 from adaptive_pinns.models import MLP
 
 
-def loss(
+def loss_data(
     model: MLP,
     x: Float[Array, "batch input_size"],
     y: Float[Array, "batch output_size"],
 ) -> Float[Array, ""]:
     y_pred = jax.vmap(model)(x)
-    return jnp.mean(optax.losses.l2_loss(y_pred, y))
+    return jnp.mean((y_pred - y) ** 2.0)
+
+
+def loss_physics(
+    model: MLP,
+    x_c: Float[Array, "size dim"],
+    physics_residual: Callable[[MLP, Float[Array, "size dim"]], Float[Array, " size"]],
+) -> Float[Array, ""]:
+    residual = physics_residual(model, x_c)
+    return jnp.mean(residual**2.0)
+
+
+def loss_pinn(
+    model: MLP,
+    x: Float[Array, "batch input_size"],
+    y: Float[Array, "batch output_size"],
+    x_c: Float[Array, "size dim"],
+    physics_residual: Callable[[MLP, Float[Array, "size dim"]], Float[Array, " size"]],
+    physics_weight: float,
+) -> Float[Array, ""]:
+    loss = loss_data(model, x, y)
+    loss += physics_weight * loss_physics(model, x_c, physics_residual)
+    return loss
 
 
 def evaluate(
@@ -27,7 +49,7 @@ def evaluate(
     samples = 0
 
     for x_batch, y_batch in validationloader:
-        batch_loss = loss(model, x_batch, y_batch)
+        batch_loss = loss_data(model, x_batch, y_batch)
         batch_size = x_batch.shape[0]
 
         loss_total += batch_loss * batch_size
@@ -53,7 +75,7 @@ def train(
         x: Float[Array, "batch input_size"],
         y: Float[Array, "batch output_size"],
     ):
-        loss_value, grads = eqx.filter_value_and_grad(loss)(model, x, y)
+        loss_value, grads = eqx.filter_value_and_grad(loss_data)(model, x, y)
         updates, opt_state = optimizer.update(grads, opt_state, eqx.filter(model, eqx.is_array))
         model = eqx.apply_updates(model, updates)
         return model, opt_state, loss_value
@@ -91,19 +113,6 @@ def train_pinn(
 ) -> MLP:
     opt_state = optimizer.init(eqx.filter(model, eqx.is_array))
 
-    def loss_pinn(
-        model: MLP,
-        x: Float[Array, "batch input_size"],
-        y: Float[Array, "batch output_size"],
-        x_c: Float[Array, "size dim"],
-    ) -> Float[Array, ""]:
-        loss_data = loss(model, x, y)
-
-        residual = physics_residual(model, x_c)
-        loss_physics = jnp.mean(residual**2.0)
-
-        return loss_data + physics_weight * loss_physics
-
     @eqx.filter_jit
     def train_step(
         model: MLP,
@@ -112,7 +121,9 @@ def train_pinn(
         y: Float[Array, "batch output_size"],
         x_collocation: Float[Array, "size dim"],
     ):
-        loss_value, grads = eqx.filter_value_and_grad(loss_pinn)(model, x, y, x_collocation)
+        loss_value, grads = eqx.filter_value_and_grad(loss_pinn)(
+            model, x, y, x_collocation, physics_residual, physics_weight
+        )
         updates, opt_state = optimizer.update(grads, opt_state, eqx.filter(model, eqx.is_array))
         model = eqx.apply_updates(model, updates)
         return model, opt_state, loss_value

@@ -129,7 +129,17 @@ def main():
     epochs = 500
     print_every = 10
     physics_weight = 1e-1
-    model = train_pinn(model, optimizer, epochs, print_every, trainloader, validationloader, collocation_sampler, physics_residual, physics_weight)
+    model = train_pinn(
+        model,
+        optimizer,
+        epochs,
+        print_every,
+        trainloader,
+        validationloader,
+        collocation_sampler,
+        physics_residual,
+        physics_weight,
+    )
 
     n = 100
     t = jnp.linspace(T0, T1, n)
@@ -140,7 +150,7 @@ def main():
     un = jnp.reshape(uu, tt.shape)
     uu_true = heat_true(tt, xx)
 
-    print("True difference:", jnp.mean((un - uu_true)**2))
+    print("True difference:", jnp.mean((un - uu_true) ** 2))
 
     plt.figure()
     plt.pcolormesh(t, x, un, vmin=0.0, vmax=1.0, cmap="rainbow")

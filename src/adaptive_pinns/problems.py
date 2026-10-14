@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 
 import jax
 import jax.numpy as jnp
@@ -48,7 +49,11 @@ class InitialBoundaryValueProblem(ABC):
         return x, u
 
     @abstractmethod
-    def diffeq(self, model, position: Float[Array, " input_dim"]) -> Float[Array, " output_dim"]:
+    def diffeq(
+        self,
+        model: Callable[[Float[Array, " input_dim"]], Float[Array, " output_dim"]],
+        position: Float[Array, " input_dim"],
+    ) -> Float[Array, " output_dim"]:
         pass
 
 
@@ -98,7 +103,11 @@ class Heat1D(InitialBoundaryValueProblem):
         u = self.get_true(tx)
         return tx, u
 
-    def diffeq(self, model, position: Float[Array, " input_dim"]) -> Float[Array, ""]:
+    def diffeq(
+        self,
+        model: Callable[[Float[Array, " input_dim"]], Float[Array, " output_dim"]],
+        position: Float[Array, " input_dim"],
+    ) -> Float[Array, ""]:
         def u(position):
             return model(position)[0]
 

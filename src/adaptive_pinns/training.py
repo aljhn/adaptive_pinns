@@ -8,11 +8,12 @@ from jaxtyping import Array, Float, PRNGKeyArray, PyTree
 
 from adaptive_pinns.collocation import CollocationSampler
 from adaptive_pinns.dataloading import TrainLoader, ValidationLoader
-from adaptive_pinns.models import MLP
+
+Model = Callable[[Float[Array, "batch input_size"]], Float[Array, "batch output_size"]]
 
 
 def loss_data(
-    model: MLP,
+    model: Model,
     x: Float[Array, "batch input_size"],
     y: Float[Array, "batch output_size"],
 ) -> Float[Array, ""]:
@@ -21,20 +22,20 @@ def loss_data(
 
 
 def loss_physics(
-    model: MLP,
+    model: Model,
     x_c: Float[Array, "size dim"],
-    physics_residual: Callable[[MLP, Float[Array, "size dim"]], Float[Array, " size"]],
+    physics_residual: Callable[[Model, Float[Array, "size dim"]], Float[Array, " size"]],
 ) -> Float[Array, ""]:
     residual = physics_residual(model, x_c)
     return jnp.mean(residual**2.0)
 
 
 def loss_pinn(
-    model: MLP,
+    model: Model,
     x: Float[Array, "batch input_size"],
     y: Float[Array, "batch output_size"],
     x_c: Float[Array, "size dim"],
-    physics_residual: Callable[[MLP, Float[Array, "size dim"]], Float[Array, " size"]],
+    physics_residual: Callable[[Model, Float[Array, "size dim"]], Float[Array, " size"]],
     physics_weight: float,
 ) -> Float[Array, ""]:
     loss = loss_data(model, x, y)
@@ -43,7 +44,7 @@ def loss_pinn(
 
 
 def evaluate(
-    model: MLP,
+    model: Model,
     validationloader: ValidationLoader,
 ) -> Float[Array, ""]:
     loss_total = jnp.array(0.0)
@@ -60,19 +61,19 @@ def evaluate(
 
 
 def train(
-    model: MLP,
+    model: Model,
     optimizer: optax.GradientTransformation,
     epochs: int,
     print_every: int,
     trainloader: TrainLoader,
     validationloader: ValidationLoader,
     key: PRNGKeyArray,
-) -> MLP:
+) -> Model:
     opt_state = optimizer.init(eqx.filter(model, eqx.is_array))
 
     @eqx.filter_jit
     def train_step(
-        model: MLP,
+        model: Model,
         opt_state: PyTree,
         x: Float[Array, "batch input_size"],
         y: Float[Array, "batch output_size"],
@@ -104,7 +105,7 @@ def train(
 
 
 def train_pinn(
-    model: MLP,
+    model: Model,
     optimizer: optax.GradientTransformation,
     epochs: int,
     print_every: int,
@@ -112,14 +113,14 @@ def train_pinn(
     validationloader: ValidationLoader,
     key: PRNGKeyArray,
     collocation_sampler: CollocationSampler,
-    physics_residual: Callable[[MLP, Float[Array, "size dim"]], Float[Array, " size"]],
+    physics_residual: Callable[[Model, Float[Array, "size dim"]], Float[Array, " size"]],
     physics_weight: float,
-) -> MLP:
+) -> Model:
     opt_state = optimizer.init(eqx.filter(model, eqx.is_array))
 
     @eqx.filter_jit
     def train_step(
-        model: MLP,
+        model: Model,
         opt_state: PyTree,
         x: Float[Array, "batch input_size"],
         y: Float[Array, "batch output_size"],

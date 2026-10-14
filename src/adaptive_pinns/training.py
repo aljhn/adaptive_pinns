@@ -4,11 +4,11 @@ import equinox as eqx
 import jax
 import jax.numpy as jnp
 import optax
-from jaxtyping import Array, Float, PyTree, PRNGKeyArray
+from jaxtyping import Array, Float, PRNGKeyArray, PyTree
 
+from adaptive_pinns.collocation import CollocationSampler
 from adaptive_pinns.dataloading import TrainLoader, ValidationLoader
 from adaptive_pinns.models import MLP
-from adaptive_pinns.collocation import CollocationSampler
 
 
 def loss_data(
@@ -66,7 +66,7 @@ def train(
     print_every: int,
     trainloader: TrainLoader,
     validationloader: ValidationLoader,
-    key: PRNGKeyArray
+    key: PRNGKeyArray,
 ) -> MLP:
     opt_state = optimizer.init(eqx.filter(model, eqx.is_array))
 

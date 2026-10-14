@@ -6,11 +6,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import optax
 
+from adaptive_pinns.collocation import UniformCollocationSampler
 from adaptive_pinns.dataloading import TrainLoader, ValidationLoader
 from adaptive_pinns.models import MLP
-from adaptive_pinns.training import train_pinn
-from adaptive_pinns.collocation import UniformCollocationSampler
 from adaptive_pinns.problems import Heat1D
+from adaptive_pinns.training import train_pinn
 
 
 def main():
@@ -45,7 +45,7 @@ def main():
 
     n_val = 1000
     key, subkey = jax.random.split(key, 2)
-    tx_val, u_val = problem.sample_domain(subkey, n_val)
+    tx_val, u_val = problem.sample_validation(subkey, n_val)
     validationloader = ValidationLoader(tx_val, u_val, batch_size)
 
     n_c = 1000
